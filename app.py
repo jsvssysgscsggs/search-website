@@ -1,20 +1,24 @@
-from flask import Flask, request, jsonify, render_template
+from flask import Flask, request, jsonify, render_template, redirect
 from sqlalchemy import create_engine, text
 import os
 import pandas as pd
 
 app = Flask(__name__)
 
-db_url = os.environ.get("DATABASE_URL")  # Render подставит эту переменную автоматически
+# Получение URL базы данных от Render
+db_url = os.environ.get("DATABASE_URL")
 engine = create_engine(db_url)
 
+# Создание таблицы, если её нет
 with engine.connect() as conn:
     conn.execute(text("CREATE TABLE IF NOT EXISTS records (id SERIAL PRIMARY KEY, data TEXT)"))
 
+# Главная страница
 @app.route('/')
 def index():
     return render_template('index.html')
 
+# Загрузка файла
 @app.route('/upload', methods=['POST'])
 def upload():
     file = request.files.get('file')
@@ -35,7 +39,6 @@ def upload():
         else:
             return "Неподдерживаемый формат", 400
 
-        # Если нет колонки data, объединяем все колонки в строку
         if 'data' not in df.columns:
             df['data'] = df.astype(str).agg(' '.join, axis=1)
 
@@ -43,10 +46,11 @@ def upload():
             conn.execute(text("DELETE FROM records"))
             for row in df['data']:
                 conn.execute(text("INSERT INTO records (data) VALUES (:data)"), {"data": row})
-        return "Файл загружен и данные сохранены", 200
+        return redirect("/")
     except Exception as e:
         return f"Ошибка при обработке файла: {e}", 500
 
+# Поиск
 @app.route('/search')
 def search():
     query = request.args.get('q', '')
@@ -55,5 +59,7 @@ def search():
         results = [row[0] for row in result]
     return jsonify(results)
 
+# Запуск Flask на нужном порту для Render
 if __name__ == '__main__':
-    app.run(debug=True)
+    port = int(os.environ.get("PORT", 10000))
+    app.run(host='0.0.0.0', port=port)
