@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: my-search-app
+    env: python
+    buildCommand: ""
+    startCommand: python app.py
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: my-search-db
+          property: connectionString
+databases:
+  - name: my-search-db
